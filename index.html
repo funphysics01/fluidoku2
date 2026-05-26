@@ -260,14 +260,19 @@
     <div class="main-content-wrapper" style="display: flex; flex-direction: column; gap: 15px;">
       <div id="sidePanel" class="side-stats" style="display: flex; gap: 10px;">
         <div class="panel" style="flex: 1; text-align: center;">
-          <div style="color:var(--neon-green); font-size: 12px;">SKOR</div>
-          <div id="score" style="font-size: 24px; font-weight: bold;">0</div>
+          <div style="color:var(--neon-cyan); font-size: 11px; text-transform: uppercase;">ROOM</div>
+          <div id="gameRoomCode" style="font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight:
+            bold; color: var(--neon-cyan);">-----</div>
+        </div>
+        <div class="panel" style="flex: 1; text-align: center;">
+          <div style="color:var(--neon-green); font-size: 11px; text-transform: uppercase;">SKOR</div>
+          <div id="score" style="font-size: 18px; font-weight: bold; white-space: nowrap; overflow:
+            hidden; text-overflow: ellipsis;">0</div>
           <div id="comboText" style="display: none; font-size: 10px; color: var(--neon-orange);">KOMBO X<span id="comboVal">0</span></div>
         </div>
         <div class="panel" style="flex: 1; text-align: center;">
-          <div style="color:var(--neon-cyan); font-size: 12px;">WAKTU</div>
-          <div id="playerTimer" style="font-size: 24px; font-weight: bold;">00:00</div>
-        </div>
+          <div style="color:var(--neon-red); font-size: 11px; text-transform: uppercase;">WAKTU</div>
+          <div id="playerTimer" style="font-size: 18px; font-weight: bold; color: var(--neon-red);">00:00</div>
       </div>
 
       <div class="sudoku-wrapper">
@@ -526,6 +531,7 @@
       soalCells = data.soalCells;
       soalOrder = data.soalOrder;
       await fetchSoal(); 
+      document.getElementById("gameRoomCode").innerText = currentRoomCode;
       renderGrid();
       initLeaderboard();
       listenMoves();
