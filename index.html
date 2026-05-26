@@ -217,45 +217,41 @@
   <div class="header">FLUIDOKU</div>
   <div id="notifArea"></div>
   
-  <!-- ================= LAYAR PEMILIHAN MODE ================= -->
   <div id="modeSelectionArea" class="panel" style="max-width: 400px; margin: 20px auto; text-align: center;">
-    <h3 style="color: var(--neon-yellow)">PILIH MODE</h3>
-    <button class="btn btn-primary" style="margin-bottom: 10px;" onclick="showAuth('moderator')">MODERATOR</button>
-    <button class="btn btn-outline-cyan" onclick="showAuth('pemain')">PEMAIN</button>
+    <h3 style="color: var(--neon-yellow)">MENU UTAMA</h3>
+    <button class="btn btn-primary" style="margin-bottom: 10px;" onclick="showAuth('host')">BUAT PERMAINAN BARU</button>
+    <button class="btn btn-outline-cyan" onclick="showAuth('player')">GABUNG PERMAINAN</button>
   </div>
 
-  <!-- Form Login Moderator -->
-  <div id="authModerator" class="panel" style="display: none; max-width: 400px; margin: 20px auto; text-align: center;">
-    <h3 style="color: var(--neon-orange)">LOGIN MODERATOR</h3>
-    <input type="text" id="modName" placeholder="Nama Anda" style="margin-bottom:10px; 
+  <div id="authHost" class="panel" style="display: none; max-width: 400px; margin: 20px auto; text-align: center;">
+    <h3 style="color: var(--neon-orange)">BUAT ROOM</h3>
+    <input type="text" id="hostName" placeholder="Nama Anda" style="margin-bottom:15px; 
       padding:12px; width:100%; box-sizing:border-box; background:#000; 
       border:1px solid var(--neon-blue); color:#fff; border-radius:6px;">
-    <input type="password" id="modPassInput" placeholder="Password Moderator" 
-      style="margin-bottom:15px; padding:12px; width:100%; box-sizing:border-box; 
-      background:#000; border:1px solid var(--neon-blue); color:#fff; border-radius:6px;">
-    <button class="btn btn-primary" onclick="handleJoin('moderator')">MASUK</button>
+    <button class="btn btn-primary" onclick="createRoom()">BUAT & MASUK</button>
     <button class="btn btn-reset" style="margin-top:10px;" onclick="backToMode()">KEMBALI</button>
   </div>
 
-  <!-- Form Login Pemain -->
-  <div id="authPemain" class="panel" style="display: none; max-width: 400px; margin: 20px auto; text-align: center;">
-    <h3 style="color: var(--neon-cyan)">LOGIN PEMAIN</h3>
-    <input type="text" id="pemainName" placeholder="Nama Anda" style="margin-bottom:15px; 
+  <div id="authPlayer" class="panel" style="display: none; max-width: 400px; margin: 20px auto; text-align: center;">
+    <h3 style="color: var(--neon-cyan)">GABUNG ROOM</h3>
+    <input type="text" id="playerName" placeholder="Nama Anda" style="margin-bottom:10px; 
       padding:12px; width:100%; box-sizing:border-box; background:#000; 
       border:1px solid var(--neon-blue); color:#fff; border-radius:6px;">
-    <button class="btn btn-primary" onclick="handleJoin('pemain')">MASUK</button>
+    <input type="text" id="roomCodeInput" placeholder="Kode Room (Contoh: X7K9A)" style="margin-bottom:15px; 
+      padding:12px; width:100%; box-sizing:border-box; background:#000; text-transform: uppercase;
+      border:1px solid var(--neon-blue); color:#fff; border-radius:6px;">
+    <button class="btn btn-primary" onclick="joinRoom()">GABUNG</button>
     <button class="btn btn-reset" style="margin-top:10px;" onclick="backToMode()">KEMBALI</button>
   </div>
-  <!-- ========================================================== -->
-
   <div id="lobbyArea" class="panel" style="display: none; max-width: 400px; margin: 20px auto; text-align: center;">
-    <h2 id="lobbyTitle">Ruang Tunggu</h2>
+    <h2 id="lobbyTitle" style="margin-bottom: 5px;">Ruang Tunggu</h2>
+    <div id="roomCodeDisplay" style="color: var(--neon-cyan); font-family: 'Orbitron'; font-size: 20px; letter-spacing: 2px; margin-bottom: 15px;"></div>
     <div id="myAvatarContainer" style="margin-bottom:15px;"></div>
     <div id="playerCount" style="color: var(--neon-yellow); font-weight: bold; 
       margin-bottom:10px;">0 Pemain Terhubung</div>
     <div id="lobbyPlayerList" style="display: flex; flex-wrap: wrap; 
       justify-content: center; gap: 10px; margin-bottom:20px;"></div>
-    <div id="modControls" style="display: none;">
+    <div id="hostControls" style="display: none;">
         <button class="btn btn-primary" onclick="triggerStartGame()">MULAI PERMAINAN</button>
     </div>
   </div>
@@ -280,7 +276,7 @@
           <button id="btnFinish" class="btn btn-primary" onclick="triggerFinishGame()" 
             style="background: var(--neon-green); display:none;">SELESAI</button>
           <button id="btnReset" class="btn btn-reset" onclick="resetGameData()" 
-            style="display:none; font-size: 10px; padding: 8px;">RESET</button>
+            style="display:none; font-size: 10px; padding: 8px;">RESET ROOM</button>
           <button id="btnDownload" class="btn btn-csv" onclick="downloadCSV()" 
             style="display:none; font-size: 10px; padding: 8px;">REKAP</button>
         </div>
@@ -352,7 +348,6 @@
   </div>
   
   <script>
-    const MODERATOR_PASSWORD = "statis1"; 
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vReECKxgkKKOyE30wrZ1hI4a0Eo4naHaigZJ7EZe-KALKUsPJq_4pPPJc0eus6n_Sd5WVeijlYcKVBY/pub?output=csv";
     const firebaseConfig = {
       apiKey: "AIzaSyCPCrzZdSagRT8_Gj8bjDvE582B4s8y9nA",
@@ -367,7 +362,8 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    let isModerator = false;
+    let isHost = false;
+    let currentRoomCode = "";
     let currentPlayer = "";
     let score = 0;
     let comboCount = 0;
@@ -390,70 +386,91 @@
     const soundCorrect = new Audio('https://github.com/funphysics01/Fluidoku-Statis/raw/refs/heads/main/sound/freesound_community-funny-yay-6273.mp3'); 
     const soundWrong = new Audio('https://github.com/funphysics01/Fluidoku-Statis/raw/refs/heads/main/sound/freesound_community-buzzer2-6109.mp3');
 
-    // =========== FUNGSI BARU UNTUK NAVIGASI LOGIN ===========
+    // =========== FUNGSI NAVIGASI MENU ===========
     function showAuth(mode) {
       document.getElementById('modeSelectionArea').style.display = 'none';
-      if (mode === 'moderator') {
-        document.getElementById('authModerator').style.display = 'block';
+      if (mode === 'host') {
+        document.getElementById('authHost').style.display = 'block';
       } else {
-        document.getElementById('authPemain').style.display = 'block';
+        document.getElementById('authPlayer').style.display = 'block';
       }
     }
 
     function backToMode() {
-      document.getElementById('authModerator').style.display = 'none';
-      document.getElementById('authPemain').style.display = 'none';
+      document.getElementById('authHost').style.display = 'none';
+      document.getElementById('authPlayer').style.display = 'none';
       document.getElementById('modeSelectionArea').style.display = 'block';
     }
-    // =========================================================
 
-    // Modifikasi handleJoin untuk menerima mode
-    function handleJoin(mode) {
-      let name = "";
-      
-      if (mode === 'moderator') {
-        name = document.getElementById("modName").value.trim();
-        const pass = document.getElementById("modPassInput").value.trim();
-        if (!name) return alert("Isi nama dulu!");
-        if (!pass) return alert("Password Moderator harus diisi!");
-        if (pass !== MODERATOR_PASSWORD) return alert("Password Moderator Salah!");
-        isModerator = true;
-      } else {
-        name = document.getElementById("pemainName").value.trim();
-        if (!name) return alert("Isi nama dulu!");
-        isModerator = false;
-      }
+    function generateRoomCode() {
+        return Math.random().toString(36).substring(2, 7).toUpperCase();
+    }
+    // ============================================
+
+    // Fungsi Untuk Buat Room (Host)
+    function createRoom() {
+      const name = document.getElementById("hostName").value.trim();
+      if (!name) return alert("Isi nama dulu!");
 
       currentPlayer = name;
+      isHost = true;
+      currentRoomCode = generateRoomCode();
       playerAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${name}`;
 
-      if (isModerator) {
-        database.ref('roomControl').set({ 
-          isStarted: false, 
-          isFinished: false, 
-          isReset: false 
-        });
-        database.ref('answers').remove();
-        database.ref('gameState').remove();
-      }
-
-      database.ref('players/' + name).set({ name, avatar: playerAvatar, isModerator });
+      // Set state awal room
+      database.ref(`rooms/${currentRoomCode}/roomControl`).set({ 
+        isStarted: false, 
+        isFinished: false, 
+        isReset: false 
+      });
       
-      // Sembunyikan form login, tampilkan lobby
-      document.getElementById("authModerator").style.display = "none";
-      document.getElementById("authPemain").style.display = "none";
+      database.ref(`rooms/${currentRoomCode}/players/${name}`).set({ name, avatar: playerAvatar, isHost });
+
+      masukKeLobby();
+    }
+
+    // Fungsi Untuk Gabung Room (Player)
+    function joinRoom() {
+      const name = document.getElementById("playerName").value.trim();
+      const code = document.getElementById("roomCodeInput").value.trim().toUpperCase();
+      
+      if (!name) return alert("Isi nama dulu!");
+      if (!code) return alert("Isi kode room!");
+
+      database.ref(`rooms/${code}`).once('value', snapshot => {
+          if (snapshot.exists()) {
+              currentPlayer = name;
+              isHost = false;
+              currentRoomCode = code;
+              playerAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${name}`;
+              
+              database.ref(`rooms/${currentRoomCode}/players/${name}`).set({ name, avatar: playerAvatar, isHost });
+              masukKeLobby();
+          } else {
+              alert("Kode Room tidak ditemukan! Pastikan kode sudah benar.");
+          }
+      });
+    }
+
+    // Transisi ke Lobby setelah Auth
+    function masukKeLobby() {
+      document.getElementById("authHost").style.display = "none";
+      document.getElementById("authPlayer").style.display = "none";
       document.getElementById("lobbyArea").style.display = "block";
       
-      if (isModerator) document.getElementById("modControls").style.display = "block";
-      document.getElementById("myAvatarContainer").innerHTML = `<img src="${playerAvatar}" style="width:70px;"><br><b>${name}</b>`;
-      sendNotification(`🎮 ${name} bergabung ke permainan!`);
+      document.getElementById("roomCodeDisplay").innerText = "KODE: " + currentRoomCode;
+      document.getElementById("myAvatarContainer").innerHTML = `<img src="${playerAvatar}" style="width:70px;"><br><b>${currentPlayer}</b>`;
+      
+      if (isHost) document.getElementById("hostControls").style.display = "block";
+      
+      sendNotification(`🎮 ${currentPlayer} bergabung ke permainan!`);
       listenToGameEvents();
       listenToLobby();
       listenNotifications();
     }
 
     function listenToLobby() {
-        database.ref('players').on('value', snap => {
+        database.ref(`rooms/${currentRoomCode}/players`).on('value', snap => {
             const players = Object.values(snap.val() || {});
             document.getElementById("playerCount").innerText = `${players.length} Pemain Bergabung`;
             const list = document.getElementById("lobbyPlayerList");
@@ -466,32 +483,39 @@
     }
 
     function listenToGameEvents() {
-      database.ref('roomControl/isStarted').on('value', snap => { if (snap.val() === true) proceedToGame(); });
-      database.ref('roomControl/isFinished').on('value', snap => { if (snap.val() === true) showFinalScreen(); });
-      database.ref('roomControl/isReset').on('value', snap => { if (snap.val() === true) window.location.reload(); });
+      database.ref(`rooms/${currentRoomCode}/roomControl/isStarted`).on('value', snap => { if (snap.val() === true) proceedToGame(); });
+      database.ref(`rooms/${currentRoomCode}/roomControl/isFinished`).on('value', snap => { if (snap.val() === true) showFinalScreen(); });
+      database.ref(`rooms/${currentRoomCode}/roomControl/isReset`).on('value', snap => { if (snap.val() === true) window.location.reload(); });
     }
 
     async function triggerStartGame() {
-      if (!isModerator) return;
+      if (!isHost) return;
       await fetchSoal();
       const sudoku = generateSudoku();
       const prefilled = pickRandom(36, 14);
       const totalSoal = Math.min(15, Object.keys(soalMap).length);
       const sCells = pickRandomExclude(36, totalSoal, prefilled);
       const sOrder = shuffle([...Array(Object.keys(soalMap).length).keys()]).slice(0, totalSoal);
-      await database.ref('gameState').set({ sudokuSolution: sudoku, prefilledCells: 
-        prefilled, soalCells: sCells, soalOrder: sOrder });
-      database.ref('roomControl').set({ isStarted: true, isFinished: false, isReset: false });
+      
+      await database.ref(`rooms/${currentRoomCode}/gameState`).set({ 
+          sudokuSolution: sudoku, 
+          prefilledCells: prefilled, 
+          soalCells: sCells, 
+          soalOrder: sOrder 
+      });
+      database.ref(`rooms/${currentRoomCode}/roomControl`).update({ isStarted: true });
       sendNotification("🚀 Permainan dimulai!");
     }
     
     async function proceedToGame() {
-      const snap = await database.ref('gameState').once('value');
+      const snap = await database.ref(`rooms/${currentRoomCode}/gameState`).once('value');
       const data = snap.val();
       if (!data) return; 
+      
       document.getElementById("lobbyArea").style.display = "none";
-      document.getElementById("mainGameArea").style.display = isModerator ? "block" : "flex";
-      if (isModerator) {
+      document.getElementById("mainGameArea").style.display = isHost ? "block" : "flex";
+      
+      if (isHost) {
         document.getElementById("sidePanel").style.display = "none";
         document.getElementById("btnFinish").style.display = "block";
         document.getElementById("btnReset").style.display = "block";
@@ -499,6 +523,7 @@
       } else {
         startTimer();
       }
+      
       sudokuSolution = data.sudokuSolution;
       prefilledCells = data.prefilledCells;
       soalCells = data.soalCells;
@@ -541,7 +566,7 @@
         if (prefilledCells.includes(i)) {
           cell.textContent = sudokuSolution[Math.floor(i/6)][i%6];
           cell.classList.add('prefilled');
-        } else if (!isModerator) {
+        } else if (!isHost) {
           cell.onclick = () => { currentSelectedCell = i; 
           document.getElementById('numberModal').classList.remove('hidden'); };
         }
@@ -600,7 +625,6 @@
               submitMove(idx, num, calculatePoints(true));
               modal.classList.add('hidden');
 
-              // Tampilkan modal pembahasan jika datanya tersedia
               if (pembahasanMap[sIdx] && pembahasanMap[sIdx] !== "") {
                   document.getElementById('pembahasanText').innerHTML = `<img src="${pembahasanMap[sIdx]}" alt="Pembahasan Soal">`;
                   document.getElementById('pembahasanModal').classList.remove('hidden');
@@ -611,7 +635,7 @@
             comboCount = 0; updateComboUI();
             score -= 25; updateScore();
             modal.classList.add('hidden');
-            alert("Jawaban Salah! -25");
+            // Menghapus alert teks dan membiarkan penalti nilai yang menjadi feedback
           }
         };
         optArea.appendChild(b);
@@ -639,9 +663,9 @@
     function showFinalScreen() {
       clearInterval(timerInterval);
       document.getElementById('grid').classList.add('locked');
-      database.ref('leaderboard').once('value', snap => {
+      database.ref(`rooms/${currentRoomCode}/leaderboard`).once('value', snap => {
         const data = Object.values(snap.val() || {}).sort((a,b) => b.score - a.score);
-        if(!isModerator) {
+        if(!isHost) {
           evaluateAchievements(data); document.getElementById('finalModal').classList.remove('hidden');
         }
       });
@@ -671,20 +695,22 @@
 
     function submitMove(idx, num, pts) {
         score += pts; updateScore();
-        database.ref("answers/" + idx).set({ player: currentPlayer, number: num });
+        database.ref(`rooms/${currentRoomCode}/answers/${idx}`).set({ player: currentPlayer, number: num });
         const type = pts > 25 ? "🧠" : "🔢";
         sendNotification(`${type} ${currentPlayer} menjawab kotak (+${pts})`);
     }
 
     function updateScore() {
-      if(isModerator) return;
+      if(isHost) return;
       document.getElementById('score').textContent = score;
-      database.ref('leaderboard/'+currentPlayer).set({ name: currentPlayer, score, 
-        avatar: playerAvatar, answeredQuestions: myAnsweredSoal.join('|') });
+      database.ref(`rooms/${currentRoomCode}/leaderboard/${currentPlayer}`).set({ 
+          name: currentPlayer, score, 
+          avatar: playerAvatar, answeredQuestions: myAnsweredSoal.join('|') 
+      });
     }
     
     function initLeaderboard() {
-      database.ref('leaderboard').on('value', snap => {
+      database.ref(`rooms/${currentRoomCode}/leaderboard`).on('value', snap => {
         const list = document.getElementById("leaderboardList");
         const finalist = document.getElementById("finalLeaderboardList");
         list.innerHTML = ""; finalist.innerHTML = "";
@@ -698,7 +724,7 @@
     }
 
     function listenMoves() {
-      database.ref("answers").on("value", snap => {
+      database.ref(`rooms/${currentRoomCode}/answers`).on("value", snap => {
         const moves = snap.val() || {};
         Object.entries(moves).forEach(([idx, m]) => {
           const cell = document.getElementById(`cell-${idx}`);
@@ -729,10 +755,10 @@
       document.querySelectorAll('.cell').forEach(c => c.classList.remove('highlight-axis', 'highlight-match')); 
     }
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-    function sendNotification(msg) { database.ref('notifications').push({ text: msg, time: Date.now() }); }
+    function sendNotification(msg) { database.ref(`rooms/${currentRoomCode}/notifications`).push({ text: msg, time: Date.now() }); }
     let gameSessionStart = Date.now();
     function listenNotifications() {
-      database.ref('notifications').limitToLast(5).on('child_added', snap => {
+      database.ref(`rooms/${currentRoomCode}/notifications`).limitToLast(5).on('child_added', snap => {
         const d = snap.val();
         if (d.time > gameSessionStart - 5000) {
           const area = document.getElementById('notifArea');
@@ -743,21 +769,21 @@
         }
       });
     }
-    function triggerFinishGame() { if (confirm("Akhiri game?")) database.ref('roomControl/isFinished').set(true); }
+    function triggerFinishGame() { if (confirm("Akhiri game di Room ini?")) database.ref(`rooms/${currentRoomCode}/roomControl/isFinished`).set(true); }
     async function resetGameData() {
-      if (confirm("Reset total?")) {
-        await database.ref().remove();
+      if (confirm("Reset seluruh data di Room ini?")) {
+        await database.ref(`rooms/${currentRoomCode}`).remove(); // HANYA HAPUS ROOM INI
         window.location.reload();
       }
     }
 
     function downloadCSV() {
-      database.ref('leaderboard').once('value', snap => {
+      database.ref(`rooms/${currentRoomCode}/leaderboard`).once('value', snap => {
         let csv = "Nama,Skor,Soal\n";
         Object.values(snap.val() || {}).forEach(e => csv += `${e.name},${e.score},"${e.answeredQuestions || '-'}"\n`);
         const blob = new Blob([csv], { type: 'text/csv' });
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob); a.download = `REKAP_FISDOKU.csv`; a.click();
+        a.href = URL.createObjectURL(blob); a.download = `REKAP_FLUIDOKU_ROOM_${currentRoomCode}.csv`; a.click();
       });
     }
 
