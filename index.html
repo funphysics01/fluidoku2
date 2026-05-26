@@ -513,7 +513,7 @@
       if (!data) return; 
       
       document.getElementById("lobbyArea").style.display = "none";
-      document.getElementById("mainGameArea").style.display = isHost ? "block" : "flex";
+      document.getElementById("mainGameArea").style.display = "flex";
       
       if (isHost) {
         document.getElementById("btnFinish").style.display = "block";
@@ -521,8 +521,6 @@
         document.getElementById("btnDownload").style.display = "block";
       } 
       startTimer();
-      
-      
       sudokuSolution = data.sudokuSolution;
       prefilledCells = data.prefilledCells;
       soalCells = data.soalCells;
@@ -569,6 +567,7 @@
           cell.onclick = () => { currentSelectedCell = i; 
           document.getElementById('numberModal').classList.remove('hidden'); };
         }
+        grid.appendChild(cell);
       }
     }
 
