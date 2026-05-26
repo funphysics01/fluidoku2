@@ -526,7 +526,6 @@
       soalCells = data.soalCells;
       soalOrder = data.soalOrder;
       await fetchSoal(); 
-      updateScore();
       renderGrid();
       initLeaderboard();
       listenMoves();
@@ -699,7 +698,7 @@
     }
 
     function updateScore() {
-      document.getElementById('score').textContent = `${currentPlayer}: ${score}`;
+      document.getElementById('score').textContent = score;
       database.ref(`rooms/${currentRoomCode}/leaderboard/${currentPlayer}`).set({ 
           name: currentPlayer, score, 
           avatar: playerAvatar, answeredQuestions: myAnsweredSoal.join('|') 
