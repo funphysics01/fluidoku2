@@ -516,13 +516,12 @@
       document.getElementById("mainGameArea").style.display = isHost ? "block" : "flex";
       
       if (isHost) {
-        document.getElementById("sidePanel").style.display = "none";
         document.getElementById("btnFinish").style.display = "block";
         document.getElementById("btnReset").style.display = "block";
         document.getElementById("btnDownload").style.display = "block";
-      } else {
-        startTimer();
-      }
+      } 
+      startTimer();
+      
       
       sudokuSolution = data.sudokuSolution;
       prefilledCells = data.prefilledCells;
@@ -566,11 +565,10 @@
         if (prefilledCells.includes(i)) {
           cell.textContent = sudokuSolution[Math.floor(i/6)][i%6];
           cell.classList.add('prefilled');
-        } else if (!isHost) {
+        } else {
           cell.onclick = () => { currentSelectedCell = i; 
           document.getElementById('numberModal').classList.remove('hidden'); };
         }
-        grid.appendChild(cell);
       }
     }
 
@@ -701,7 +699,6 @@
     }
 
     function updateScore() {
-      if(isHost) return;
       document.getElementById('score').textContent = score;
       database.ref(`rooms/${currentRoomCode}/leaderboard/${currentPlayer}`).set({ 
           name: currentPlayer, score, 
