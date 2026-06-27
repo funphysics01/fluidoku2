@@ -719,7 +719,7 @@
 
     function submitMove(idx, num, pts) {
         score += pts; updateScore();
-        database.ref(`rooms/${currentRoomCode}/answers/${idx}`).set({ player: currentPlayer, number: num });
+        database.ref(`rooms/${currentRoomCode}/answers/${currentPlayer}/${idx}`).set({ number: num });
         const type = soalCells.includes(idx) ? "🧠" : "🔢";
         sendNotification(`${type} ${currentPlayer} menjawab kotak (+${pts})`);
     }
@@ -747,7 +747,7 @@
     }
 
     function listenMoves() {
-      database.ref(`rooms/${currentRoomCode}/answers`).on("value", snap => {
+      database.ref(`rooms/${currentRoomCode}/answers/${currentPlayer}`).on("value", snap => {
         const moves = snap.val() || {};
         Object.entries(moves).forEach(([idx, m]) => {
           const cell = document.getElementById(`cell-${idx}`);
