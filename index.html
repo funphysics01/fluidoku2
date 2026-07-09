@@ -84,10 +84,13 @@
       cursor: default; 
     }
 
-    .cell.highlight-axis { background: #3d5685 !important; }
+    .cell.highlight-axis { 
+      background-color: transparent !important;
+      box-shadow: inset 0 0 0 2000px rgba(0, 191, 255, 0.12) !important;
+    }
     .cell.highlight-match { 
-      background: rgba(128, 209, 243, 0.4) !important; 
-      box-shadow: inset 0 0 10px var(--neon-cyan); 
+      background-color: transparent !important; 
+      box-shadow: inset 0 0 0 2000px rgba(0, 191, 255, 0.35) !important;
     }
 
     .btn-primary { 
@@ -223,10 +226,38 @@
       background: #4d3618 !important;
       box-shadow: inset 0 0 15px var(--neon-orange) !important;
     }
+    .cell.physics-cell {
+      background: #1b2a44 !important; 
+      border: 1px solid var(--neon-yellow) !important;   /* Border kuning menyala */
+      color: var(--neon-yellow) !important;
+      text-shadow: 0 0 8px var(--neon-yellow);
+      box-shadow: inset 0 0 10px rgba(255, 240, 0, 0.2);
+      animation: physicsPulse 2.5s infinite alternate ease-in-out;
+    }
+    .cell.physics-cell:hover {
+      background: #253655 !important; /* Sedikit lebih terang saat kursor di atasnya */
+      box-shadow: inset 0 0 15px rgba(255, 240, 0, 0.4), 0 0 15px var(--neon-yellow) !important;
+    }
+    @keyframes physicsPulse {
+      0% {
+        border-color: rgba(255, 240, 0, 0.6);
+        box-shadow: inset 0 0 8px rgba(255, 240, 0, 0.1), 0 0 4px rgba(255, 240, 0, 0.1);
+      }
+      100% {
+        border-color: var(--neon-yellow);
+        box-shadow: inset 0 0 12px rgba(255, 240, 0, 0.25), 0 0 10px rgba(255, 240, 0, 0.4);
+      }
+    }
+    .cell.physics-cell:empty::before {
+      content: "🧠"; 
+      font-size: 22px;
+      opacity: 0.9;
+    }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
   
 <body>
@@ -389,6 +420,9 @@
     let currentPlayer = "";
     let score = 0;
     let comboCount = 0;
+    let correctCount = 0;
+    let wrongCount = 0; 
+    let attemptCount = 0;
     let timerInterval;
     let totalSeconds = 0;
     let sudokuSolution = [];
@@ -396,12 +430,14 @@
     let soalMap = {};
     let jawabanMap = {};
     let pembahasanMap = {};
+    let materiMap = {};
     let soalCells = [];
     let soalOrder = [];
     let myAnsweredSoal = [];
+    let myWrongSoal = [];
+    let myWrongMateri = [];
     let currentSelectedCell = null;
     let playerAvatar = "";
-
     let physicsWrongCount = 0;
     let physicsCorrectCount = 0;
     let maxComboEver = 0;
@@ -514,8 +550,8 @@
       if (!isHost) return;
       await fetchSoal();
       const sudoku = generateSudoku();
-      const prefilled = pickRandom(36, 14);
-      const totalSoal = Math.min(15, Object.keys(soalMap).length);
+      const prefilled = pickRandom(36, 11);
+      const totalSoal = Math.min(10, Object.keys(soalMap).length);
       const sCells = pickRandomExclude(36, totalSoal, prefilled);
       const sOrder = shuffle([...Array(Object.keys(soalMap).length).keys()]).slice(0, totalSoal);
       
@@ -561,10 +597,11 @@
         const rows = text.split('\n').slice(1);
         rows.forEach((row, idx) => {
           const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-          if (cols.length >= 3) {
-            soalMap[idx] = cols.slice(0, -2).join(',').replace(/^"|"$/g, '');
-            jawabanMap[idx] = cols[cols.length-2].replace(/^"|"$/g, '').trim().toLowerCase();
-            pembahasanMap[idx] = cols[cols.length-1].replace(/^"|"$/g, '').trim();
+          if (cols.length >= 4) {
+            soalMap[idx] = cols.slice(0, -3).join(',').replace(/^"|"$/g, '');
+            jawabanMap[idx] = cols[cols.length-3].replace(/^"|"$/g, '').trim().toLowerCase();
+            pembahasanMap[idx] = cols[cols.length-2].replace(/^"|"$/g, '').trim();
+            materiMap[idx] = cols[cols.length-1].replace(/^"|"$/g, '').trim();
           } else if (cols.length === 2) {
             soalMap[idx] = cols.slice(0, -1).join(',').replace(/^"|"$/g, '');
             jawabanMap[idx] = cols[cols.length-1].replace(/^"|"$/g, '').trim().toLowerCase();
@@ -586,6 +623,10 @@
         if (prefilledCells.includes(i)) {
           cell.textContent = sudokuSolution[Math.floor(i/6)][i%6];
           cell.classList.add('prefilled');
+          cell.onclick = () => {
+            clearHighlight();
+            highlightOnHover(i);
+          };
         } else {
           if (soalCells.includes(i)) {
             cell.onclick = () => { 
@@ -611,7 +652,7 @@
       const idx = currentSelectedCell;
       const cell = document.getElementById(`cell-${idx}`);
       const correct = sudokuSolution[Math.floor(idx/6)][idx%6];
-      const isSubsequent = cell.classList.contains('answered-by-other');
+      const answeredCount = cell ? parseInt(cell.dataset.answeredCount || 0) : 0;
       if (parseInt(num) === correct) {
           soundCorrect.play();
           cell.classList.add('correct-glow');
@@ -619,10 +660,11 @@
           comboCount++;
           if(comboCount > maxComboEver) maxComboEver = comboCount;
           updateComboUI();
-          submitMove(idx, num, calculatePoints(false, isSubsequent));
+          submitMove(idx, num, calculatePoints(false, answeredCount));
       } else {
         soundWrong.play();
-        comboCount = 0; updateComboUI();
+        comboCount = 0; 
+        updateComboUI();
         cell.classList.add('wrong-shake');
         setTimeout(() => cell.classList.remove('wrong-shake'), 400);
         score -= 10; updateScore();
@@ -643,7 +685,7 @@
       optArea.style.gap = "8px";
       optArea.innerHTML = '';
       const cell = document.getElementById(`cell-${idx}`);
-      const isSubsequent = cell ? cell.classList.contains('answered-by-other') : false;
+      const answeredCount = cell ? parseInt(cell.dataset.answeredCount || 0) : 0;
       ['a','b','c','d','e'].forEach(opt => {
         const b = document.createElement('button');
         b.className = 'btn btn-outline-cyan'; b.innerText = opt.toUpperCase();
@@ -651,11 +693,16 @@
           if (opt === jawabanMap[sIdx]) {
             soundCorrect.play();
             physicsCorrectCount++;
+            correctCount++;
+            attemptCount++;
             comboCount++;
             if(comboCount > maxComboEver) maxComboEver = comboCount;
               updateComboUI();
               myAnsweredSoal.push(sIdx + 1);
-              submitMove(idx, correctNum, calculatePoints(true, isSubsequent));
+              myWrongSoal = myWrongSoal.filter(x => x !== (sIdx + 1));
+              myWrongMateri = myWrongMateri.filter(x => x !== materiMap[sIdx]);
+              updateQuestionStats(sIdx + 1, true);
+              submitMove(idx, correctNum, calculatePoints(true, answeredCount));
               modal.classList.add('hidden');
               if (pembahasanMap[sIdx] && pembahasanMap[sIdx] !== "") {
                   document.getElementById('pembahasanText').innerHTML = `<img src="${pembahasanMap[sIdx]}" alt="Pembahasan Soal">`;
@@ -664,8 +711,17 @@
           } else {
             soundWrong.play();
             physicsWrongCount++;
+            wrongCount++;
+            attemptCount++;
+            if (!myWrongSoal.includes(sIdx + 1)) {
+              myWrongSoal.push(sIdx + 1);
+            }
+            if (!myWrongMateri.includes(materiMap[sIdx])) {
+              myWrongMateri.push(materiMap[sIdx]);
+            }
+            updateQuestionStats(sIdx + 1, false);
             comboCount = 0; updateComboUI();
-            score -= 25; updateScore();
+            score -= 10; updateScore();
             modal.classList.add('hidden');
             sendNotification(`❌ ${currentPlayer} salah menjawab soal HOTS! (-25 Poin)`);
           }
@@ -690,6 +746,32 @@
           list.innerHTML += `<span class="achievement-badge">${b}</span>`;
         });
       }
+      let feedback = "";
+      if (correctCount >= 8) {
+        feedback =
+        "🎉 Kerja bagus! Kamu sudah menguasai sebagian besar materi Fluida Dinamis.";
+      }
+      else if (correctCount >= 5) {
+          feedback =
+          "👍 Pemahamanmu sudah cukup baik, tetapi masih ada beberapa materi yang perlu dipelajari lagi.";
+      }
+      else {
+          feedback =
+          "📚 Ayo belajar lagi! Pelajari kembali materi Fluida Dinamis dan coba mainkan game ini lagi."; 
+      }
+      if (myWrongMateri.length > 0) {
+          feedback += `
+          <br><br>
+          <b>Materi yang perlu dipelajari kembali:</b>
+          <br>• ${myWrongMateri.join("<br>• ")}`; 
+      }
+      list.innerHTML += `<div style="margin-top:15px;
+      padding:10px;
+      border-radius:8px;
+      background:rgba(255,255,255,.08);
+      font-size:12px;
+      line-height:1.6;
+      text-align:left;">${feedback}</div>`;
     }
 
     function showFinalScreen() {
@@ -712,13 +794,11 @@
       }, 1000);
     }
 
-    function calculatePoints(isPhysics, isSubsequent) {
+    function calculatePoints(isPhysics, answeredCount) {
       let pts = isPhysics ? 50 : 25;
       if (comboCount === 2) pts += 10;
       if (comboCount >= 3) pts += 25;
-      if (isSubsequent) {
-        pts -= 1;
-      }
+      pts -= answeredCount;
       return pts;
     }
 
@@ -739,7 +819,12 @@
       document.getElementById('score').textContent = score;
       database.ref(`rooms/${currentRoomCode}/leaderboard/${currentPlayer}`).set({ 
           name: currentPlayer, score, 
-          avatar: playerAvatar, answeredQuestions: myAnsweredSoal.join('|') 
+          avatar: playerAvatar, 
+          correct: correctCount,
+          wrong: wrongCount,
+          attempts: attemptCount,
+          time: document.getElementById('playerTimer').textContent,
+          answeredQuestions: myAnsweredSoal.join('|') 
       });
     }
     
@@ -766,11 +851,15 @@
           if (!cell) continue;
           const cellAnswers = allAnswers[i] || {};
           const playersWhoAnswered = Object.keys(cellAnswers);
+          cell.dataset.answeredCount = playersWhoAnswered.length;
           if (cellAnswers[currentPlayer]) {
             cell.textContent = cellAnswers[currentPlayer].number;
-            cell.classList.remove("answered-by-other");
+            cell.classList.remove("answered-by-other", "physics-cell");
             cell.classList.add("answered-by-you");
-            cell.onclick = null;
+            cell.onclick = () => {
+              clearHighlight();
+              highlightOnHover(i);
+            };
           } else if (playersWhoAnswered.length > 0) {
             cell.textContent = ""; // 
             cell.classList.remove("answered-by-you");
@@ -786,13 +875,18 @@
           } else {
             cell.textContent = "";
             cell.classList.remove("answered-by-you", "answered-by-other");
+            if (soalCells.includes(i)) {
+              cell.classList.add("physics-cell"); // <-- PASANG KEMBALI DI SINI
+            } else {
+              cell.classList.remove("physics-cell");
+            }
             cell.onclick = () => { 
               currentSelectedCell = i; 
               if (soalCells.includes(i)) {
                 openQuestionModal(i);
               } else {
                 document.getElementById('numberModal').classList.remove('hidden'); 
-              }
+              } 
             };
           }
         }
@@ -840,12 +934,66 @@
     }
 
     function downloadCSV() {
-      database.ref(`rooms/${currentRoomCode}/leaderboard`).once('value', snap => {
-        let csv = "Nama,Skor,Soal\n";
-        Object.values(snap.val() || {}).forEach(e => csv += `${e.name},${e.score},"${e.answeredQuestions || '-'}"\n`);
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob); a.download = `REKAP_FLUIDOKU_ROOM_${currentRoomCode}.csv`; a.click();
+      Promise.all([
+        database.ref(`rooms/${currentRoomCode}/leaderboard`).once('value'),
+        database.ref(`rooms/${currentRoomCode}/questionStats`).once('value')
+      ]).then(([leaderboardSnap, questionSnap]) => {
+        const leaderboard = leaderboardSnap.val() || {};
+        const questionStats = questionSnap.val() || {};
+        const sheet1 = [];
+        sheet1.push([
+          "Nama",
+          "Skor",
+          "Benar",
+          "Salah",
+          "Percobaan",
+          "Waktu",
+          "Nomor Soal Benar"
+        ]);
+        Object.values(leaderboard).forEach(e => {
+          sheet1.push([
+            e.name,
+            e.score,
+            e.correct || 0,
+            e.wrong || 0,
+            e.attempts || 0,
+            e.time || "-",
+            (e.answeredQuestions || "").replaceAll("|", ", ")
+          ]);
+        });
+        const sheet2 = [];
+        sheet2.push([
+          "No Soal",
+          "Jumlah Benar",
+          "Jumlah Salah",
+          "Total Percobaan",
+          "Rata-rata Percobaan"
+        ]);
+        Object.keys(questionStats)
+          .sort((a,b)=>Number(a)-Number(b))
+          .forEach(no => {
+            const q = questionStats[no];
+            const avg =
+              q.correct > 0
+                ? (q.attempts / q.correct).toFixed(2)
+                : 0;
+            sheet2.push([
+              no,
+              q.correct,
+              q.wrong,
+              q.attempts,
+              avg
+            ]);
+          });
+        const wb = XLSX.utils.book_new();
+        const ws1 = XLSX.utils.aoa_to_sheet(sheet1);
+        const ws2 = XLSX.utils.aoa_to_sheet(sheet2);
+        XLSX.utils.book_append_sheet(wb, ws1, "Rekap Nilai");
+        XLSX.utils.book_append_sheet(wb, ws2, "Analisis Soal");
+        XLSX.writeFile(
+          wb,
+          `REKAP_FLUIDOKU_ROOM_${currentRoomCode}.xlsx`
+        );
       });
     }
 
@@ -853,6 +1001,25 @@
       const base = [[1,2,3,4,5,6],[4,5,6,1,2,3],[2,3,1,5,6,4],[5,6,4,2,3,1],[3,1,2,6,4,5],[6,4,5,3,1,2]];
       const m = shuffle([1,2,3,4,5,6]);
       return base.map(r => r.map(v => m[v-1]));
+    }
+    function updateQuestionStats(questionNumber, isCorrect) {
+      const ref = database.ref(`rooms/${currentRoomCode}/questionStats/${questionNumber}`);
+      ref.transaction(stats => {
+        if (!stats) {
+          stats = {
+            correct: 0,
+            wrong: 0,
+            attempts: 0
+          };
+        }
+        stats.attempts++;
+        if (isCorrect) {
+        stats.correct++;
+        } else {
+          stats.wrong++;
+        }
+        return stats;
+      });
     }
     function shuffle(a) { for (let i=a.length-1; i>0; i--) { 
       const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
